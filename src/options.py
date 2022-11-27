@@ -23,6 +23,10 @@ def args_parser():
                         help='learning rate')
     parser.add_argument('--momentum', type=float, default=0.5,
                         help='SGD momentum (default: 0.5)')
+    parser.add_argument('--prune_ratio', type=float, default=0.5,
+                        help="proportion of network to be pruned")                        
+    parser.add_argument('--prune_iter', type=int, default=5,
+                        help="number of rounds of iterative pruning")
 
     # model arguments
     parser.add_argument('--model', type=str, default='mlp', help='model name')
@@ -60,5 +64,6 @@ def args_parser():
                         help='rounds of early stopping')
     parser.add_argument('--verbose', type=int, default=1, help='verbose')
     parser.add_argument('--seed', type=int, default=1, help='random seed')
+
     args = parser.parse_args()
     return args

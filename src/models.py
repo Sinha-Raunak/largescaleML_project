@@ -14,6 +14,13 @@ class MLP(nn.Module):
         self.dropout = nn.Dropout()
         self.layer_hidden = nn.Linear(dim_hidden, dim_out)
         self.softmax = nn.Softmax(dim=1)
+        layer_sizes = (dim_in,) + (dim_hidden,) + (dim_out,)
+        layer_list = []
+
+        for i in range(len(layer_sizes) - 1):
+            layer_list.append(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
+
+        self.module_list = nn.ModuleList(layer_list)
 
     def forward(self, x):
         x = x.view(-1, x.shape[1]*x.shape[-2]*x.shape[-1])

@@ -16,7 +16,8 @@ from tensorboardX import SummaryWriter
 from options import args_parser
 from update import LocalUpdate, test_inference
 from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
-from utils import get_dataset, average_weights, exp_details
+from utils import get_dataset, average_weights, exp_details, prune_mlp, prune_linear, copy_weights_mlp, remove_reparam_mlp, compute_stats
+from torch.nn.utils.prune import remove
 
 
 if __name__ == '__main__':
@@ -29,9 +30,10 @@ if __name__ == '__main__':
     args = args_parser()
     exp_details(args)
 
-    if args.gpu_id:
-        torch.cuda.set_device(args.gpu_id)
-    device = 'cuda' if args.gpu else 'cpu'
+    #if args.gpu_id:
+    #    torch.cuda.set_device(args.gpu_id)
+    #device = 'cuda' if args.gpu else 'cpu'
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     # load dataset and user groups
     train_dataset, test_dataset, user_groups = get_dataset(args)
@@ -64,13 +66,23 @@ if __name__ == '__main__':
 
     # copy weights
     global_weights = global_model.state_dict()
-
+    local_upd_model_copy = copy.deepcopy(global_model)
     # Training
     train_loss, train_accuracy = [], []
     val_acc_list, net_list = [], []
     cv_loss, cv_acc = [], []
     print_every = 2
     val_loss_pre, counter = 0, 0
+
+    #Pruning set-up
+    per_round_prune_ratio = 1 - (1 - args.prune_ratio) ** (
+            1 / args.prune_iter
+        )
+
+    per_round_prune_ratios = [per_round_prune_ratio] * len(global_model.module_list)
+    per_round_prune_ratios[-1] /= 2
+
+    # per_round_max_iter = int(args.max_iter / args.prune_iter)
 
     for epoch in tqdm(range(args.epochs)):
         local_weights, local_losses = [], []
@@ -83,11 +95,34 @@ if __name__ == '__main__':
         for idx in idxs_users:
             local_model = LocalUpdate(args=args, dataset=train_dataset,
                                       idxs=user_groups[idx], logger=logger)
+            local_upd_model = copy.deepcopy(global_model)            
+            
+            for iter in range(args.prune_iter):
+                w, loss = local_model.update_weights(
+                    local_upd_model, global_round=epoch)    
+                prune_mlp(local_upd_model, per_round_prune_ratios)
+
+                copy_weights_mlp(local_upd_model_copy, local_upd_model)                
+                    
             w, loss = local_model.update_weights(
-                model=copy.deepcopy(global_model), global_round=epoch)
-            local_weights.append(copy.deepcopy(w))
+                    local_upd_model, global_round=epoch)
+
+            stats = compute_stats(local_upd_model)
+            print(f'Here are the pruning stats for client {idx} \n')
+            print(stats)
+                                    
+            #print([(key, w[key]) for key in w.keys() ])
+            remove_reparam_mlp(local_upd_model)
+            
+            #local_weights.append(copy.deepcopy(w))
             local_losses.append(copy.deepcopy(loss))
 
+            #Track pruned weights
+            #local_weights.append(copy.deepcopy(local_upd_model.state_dict()))            
+            w = local_upd_model.state_dict()
+            #print([key for key in w.keys()])
+            local_weights.append(copy.deepcopy(w))
+                        
         # update global weights
         global_weights = average_weights(local_weights)
 
@@ -113,7 +148,7 @@ if __name__ == '__main__':
             print(f' \nAvg Training Stats after {epoch+1} global rounds:')
             print(f'Training Loss : {np.mean(np.array(train_loss))}')
             print('Train Accuracy: {:.2f}% \n'.format(100*train_accuracy[-1]))
-
+ 
     # Test inference after completion of training
     test_acc, test_loss = test_inference(args, global_model, test_dataset)
 
@@ -122,12 +157,12 @@ if __name__ == '__main__':
     print("|---- Test Accuracy: {:.2f}%".format(100*test_acc))
 
     # Saving the objects train_loss and train_accuracy:
-    file_name = '../save/objects/{}_{}_{}_C[{}]_iid[{}]_E[{}]_B[{}].pkl'.\
+    file_name = 'save/objects/{}_{}_{}_C[{}]_iid[{}]_E[{}]_B[{}].pkl'.\
         format(args.dataset, args.model, args.epochs, args.frac, args.iid,
                args.local_ep, args.local_bs)
 
     with open(file_name, 'wb') as f:
-        pickle.dump([train_loss, train_accuracy], f)
+        pickle.dump([train_loss, train_accuracy], f) 
 
     print('\n Total Run Time: {0:0.4f}'.format(time.time()-start_time))
 
