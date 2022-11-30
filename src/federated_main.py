@@ -176,7 +176,6 @@ if __name__ == '__main__':
     for i in range(len(weights_masks_list)):
 
         if args.prune_strat == 2:
-            print("here")
             w_masks = weights_masks_list[i]
             b_masks = bias_masks_list[i]
 
