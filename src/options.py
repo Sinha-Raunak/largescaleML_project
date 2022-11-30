@@ -27,6 +27,8 @@ def args_parser():
                         help="proportion of network to be pruned")                        
     parser.add_argument('--prune_iter', type=int, default=5,
                         help="number of rounds of iterative pruning")
+    parser.add_argument('--prune_strat', type=int, default=1,
+                        help="pruning strategy")
 
     # model arguments
     parser.add_argument('--model', type=str, default='mlp', help='model name')

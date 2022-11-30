@@ -40,7 +40,7 @@ def mnist_noniid(dataset, num_users):
     # sort labels
     idxs_labels = np.vstack((idxs, labels))
     idxs_labels = idxs_labels[:, idxs_labels[1, :].argsort()]
-    idxs = idxs_labels[0, :]
+    idxs = idxs_labels[0, :] # doubt
 
     # divide and assign 2 shards/client
     for i in range(num_users):
@@ -98,7 +98,7 @@ def mnist_noniid_unequal(dataset, num_users):
                     (dict_users[i], idxs[rand*num_imgs:(rand+1)*num_imgs]),
                     axis=0)
 
-        random_shard_size = random_shard_size-1
+        random_shard_size = random_shard_size - 1
 
         # Next, randomly assign the remaining shards
         for i in range(num_users):

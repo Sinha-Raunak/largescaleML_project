@@ -90,8 +90,11 @@ if __name__ == '__main__':
 
         global_model.train()
         m = max(int(args.frac * args.num_users), 1)
-        idxs_users = np.random.choice(range(args.num_users), m, replace=False)
+        # idxs_users = np.random.choice(range(args.num_users), m, replace=False)
+        idxs_users = np.arange(m)
+        np.random.shuffle(idxs_users)
 
+        weights_masks_list, bias_masks_list = [], []
         for idx in idxs_users:
             local_model = LocalUpdate(args=args, dataset=train_dataset,
                                       idxs=user_groups[idx], logger=logger)
@@ -100,12 +103,17 @@ if __name__ == '__main__':
             for iter in range(args.prune_iter):
                 w, loss = local_model.update_weights(
                     local_upd_model, global_round=epoch)    
-                prune_mlp(local_upd_model, per_round_prune_ratios)
+                weight_masks, bias_masks = prune_mlp(local_upd_model, per_round_prune_ratios)
 
+                # print("weight masks:", weight_masks)
+                # print("bias masks:", bias_masks)
                 copy_weights_mlp(local_upd_model_copy, local_upd_model)                
                     
             w, loss = local_model.update_weights(
                     local_upd_model, global_round=epoch)
+
+            weights_masks_list.append(weight_masks)
+            bias_masks_list.append(bias_masks)
 
             stats = compute_stats(local_upd_model)
             print(f'Here are the pruning stats for client {idx} \n')
@@ -148,6 +156,7 @@ if __name__ == '__main__':
             print(f' \nAvg Training Stats after {epoch+1} global rounds:')
             print(f'Training Loss : {np.mean(np.array(train_loss))}')
             print('Train Accuracy: {:.2f}% \n'.format(100*train_accuracy[-1]))
+
  
     # Test inference after completion of training
     test_acc, test_loss = test_inference(args, global_model, test_dataset)
@@ -156,8 +165,51 @@ if __name__ == '__main__':
     print("|---- Avg Train Accuracy: {:.2f}%".format(100*train_accuracy[-1]))
     print("|---- Test Accuracy: {:.2f}%".format(100*test_acc))
 
+    # test accuracy for local models
+    tmp_local_model = copy.deepcopy(global_model)
+    tmp_local_update = LocalUpdate(args=args, dataset=train_dataset,
+                                   idxs=user_groups[idx], logger=logger)
+    fed_node_acc = []
+    fed_node_loss = []
+    w_masks = np.ones(local_weights[0]['layer_input.weight'].shape[0])
+    b_masks = np.ones(local_weights[0]['layer_input.bias'].shape[0])
+    for i in range(len(weights_masks_list)):
+
+        if args.prune_strat == 2:
+            print("here")
+            w_masks = weights_masks_list[i]
+            b_masks = bias_masks_list[i]
+
+        local_weights[i]['layer_input.weight'] *= w_masks[0]
+        local_weights[i]['layer_hidden.weight'] *= w_masks[1]
+
+        local_weights[i]['layer_input.bias'] *= b_masks[0]
+        local_weights[i]['layer_hidden.bias'] *= b_masks[1]
+        # print("local_weights: ",local_weights[i])
+        # print("masked weights: ", masked_weights)
+
+        tmp_local_model.load_state_dict(local_weights[i])
+        fed_test_acc, fed_test_loss = test_inference(args, tmp_local_model, test_dataset)
+        print("|---- Test Accuracy node {}: {:.2f}%".format(i+1, 100 * fed_test_acc))
+        fed_node_acc.append(fed_test_acc)
+        fed_node_loss.append(fed_test_loss)
+
+    # average accuracy across all fed nodes
+    print("|---- Average Test Accuracy across all node: {:.2f}%".format( \
+        100 * sum(fed_node_acc)/len(fed_node_acc)))
+
+    print("|---- Min Test Accuracy across node: {:.2f}% for node # {} ".format( \
+        100 * np.min(fed_node_acc), np.argmin(fed_node_acc)))
+
+    print("|---- Max Test Accuracy across node: {:.2f}% for node # {} ".format( \
+        100 * np.max(fed_node_acc), np.argmax(fed_node_acc)))
+
+    print("|---- Test Accuracy difference between global model and average test "
+          " across nodes: {:.2f}%".format( \
+        100 * (test_acc - (sum(fed_node_acc)/len(fed_node_acc)))))
+
     # Saving the objects train_loss and train_accuracy:
-    file_name = 'save/objects/{}_{}_{}_C[{}]_iid[{}]_E[{}]_B[{}].pkl'.\
+    file_name = '../save/objects/{}_{}_{}_C[{}]_iid[{}]_E[{}]_B[{}].pkl'.\
         format(args.dataset, args.model, args.epochs, args.frac, args.iid,
                args.local_ep, args.local_bs)
 

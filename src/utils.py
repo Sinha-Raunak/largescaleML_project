@@ -15,7 +15,8 @@ def get_dataset(args):
     the keys are the user index and the values are the corresponding data for
     each of those users.
     """
-
+    # number of fed nodes
+    m = max(int(args.frac * args.num_users), 1)
     if args.dataset == 'cifar':
         data_dir = '../data/cifar/'
         apply_transform = transforms.Compose(
@@ -31,7 +32,7 @@ def get_dataset(args):
         # sample training data amongst users
         if args.iid:
             # Sample IID user data from Mnist
-            user_groups = cifar_iid(train_dataset, args.num_users)
+            user_groups = cifar_iid(train_dataset, m)
         else:
             # Sample Non-IID user data from Mnist
             if args.unequal:
@@ -39,7 +40,7 @@ def get_dataset(args):
                 raise NotImplementedError()
             else:
                 # Chose euqal splits for every user
-                user_groups = cifar_noniid(train_dataset, args.num_users)
+                user_groups = cifar_noniid(train_dataset, m)
 
     elif args.dataset == 'mnist' or 'fmnist':
         if args.dataset == 'mnist':
@@ -60,15 +61,15 @@ def get_dataset(args):
         # sample training data amongst users
         if args.iid:
             # Sample IID user data from Mnist
-            user_groups = mnist_iid(train_dataset, args.num_users)
+            user_groups = mnist_iid(train_dataset, m)
         else:
             # Sample Non-IID user data from Mnist
             if args.unequal:
                 # Chose uneuqal splits for every user
-                user_groups = mnist_noniid_unequal(train_dataset, args.num_users)
+                user_groups = mnist_noniid_unequal(train_dataset, m)
             else:
                 # Chose euqal splits for every user
-                user_groups = mnist_noniid(train_dataset, args.num_users)
+                user_groups = mnist_noniid(train_dataset, m)
 
     return train_dataset, test_dataset, user_groups
 
@@ -160,8 +161,13 @@ def prune_mlp(mlp, prune_ratio=0.3, method="l1"):
     else:
         raise TypeError
 
+    weight_masks = []
+    bias_masks = []
     for prune_ratio, linear in zip(prune_ratios, mlp.module_list):
         prune_linear(linear, prune_ratio=prune_ratio, method=method)
+        weight_masks.append(list(linear.named_buffers())[0][1])
+        bias_masks.append(list(linear.named_buffers())[1][1])
+    return weight_masks, bias_masks
 
 def check_pruned_linear(linear):
     """Check if a Linear module was pruned.

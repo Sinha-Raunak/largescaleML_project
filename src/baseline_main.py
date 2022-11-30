@@ -48,6 +48,7 @@ if __name__ == '__main__':
     global_model.to(device)
     global_model.train()
     print(global_model)
+    print(global_model)
 
     # Training
     # Set optimizer and criterion
@@ -89,7 +90,7 @@ if __name__ == '__main__':
     plt.plot(range(len(epoch_loss)), epoch_loss)
     plt.xlabel('epochs')
     plt.ylabel('Train loss')
-    plt.savefig('save/nn_{}_{}_{}.png'.format(args.dataset, args.model,
+    plt.savefig('../save/nn_{}_{}_{}.png'.format(args.dataset, args.model,
                                                  args.epochs))
 
     # testing
