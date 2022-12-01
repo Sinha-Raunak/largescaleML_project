@@ -101,6 +101,7 @@ if __name__ == '__main__':
             local_upd_model = copy.deepcopy(global_model)            
             plot_count = 0
             plt.figure()
+            plt.title("Iterative ")
             for iter in range(args.prune_iter):
                 w, loss, epoch_loss_bp = local_model.update_weights(
                     local_upd_model, global_round=epoch)
@@ -125,7 +126,7 @@ if __name__ == '__main__':
             plt.plot(np.arange(1, len(epoch_loss_ap) + 1), epoch_loss_ap)
             plt.xlabel("No. Of Epochs")
             plt.ylabel("Loss")
-            legend_name = [f" iteration {x}" for x in range(args.prune_iter)]
+            legend_name = [f" iteration {x}" for x in range(args.prune_iter+1)]
             plt.legend(legend_name, loc = 'upper right')
             plt.savefig(f'../save/loss_graph_user{idx}_strat{args.prune_strat}_iter{args.prune_iter}_pr{args.prune_ratio}.png')
 
