@@ -99,10 +99,11 @@ if __name__ == '__main__':
             local_model = LocalUpdate(args=args, dataset=train_dataset,
                                       idxs=user_groups[idx], logger=logger)
             local_upd_model = copy.deepcopy(global_model)            
-            
+
             for iter in range(args.prune_iter):
                 w, loss = local_model.update_weights(
-                    local_upd_model, global_round=epoch)    
+                    local_upd_model, global_round=epoch)
+
                 weight_masks, bias_masks = prune_mlp(local_upd_model, per_round_prune_ratios)
 
                 # print("weight masks:", weight_masks)
@@ -145,7 +146,7 @@ if __name__ == '__main__':
         global_model.eval()
         for c in range(args.num_users):
             local_model = LocalUpdate(args=args, dataset=train_dataset,
-                                      idxs=user_groups[idx], logger=logger)
+                                      idxs=user_groups[c], logger=logger)
             acc, loss = local_model.inference(model=global_model)
             list_acc.append(acc)
             list_loss.append(loss)
@@ -159,11 +160,12 @@ if __name__ == '__main__':
 
  
     # Test inference after completion of training
-    test_acc, test_loss = test_inference(args, global_model, test_dataset)
+    test_acc, test_loss, test_time = test_inference(args, global_model, test_dataset)
 
     print(f' \n Results after {args.epochs} global rounds of training:')
     print("|---- Avg Train Accuracy: {:.2f}%".format(100*train_accuracy[-1]))
     print("|---- Test Accuracy: {:.2f}%".format(100*test_acc))
+    print("|---- Global Time: {:.6f}".format(test_time))
 
     # test accuracy for local models
     tmp_local_model = copy.deepcopy(global_model)
@@ -171,6 +173,7 @@ if __name__ == '__main__':
                                    idxs=user_groups[idx], logger=logger)
     fed_node_acc = []
     fed_node_loss = []
+    fed_node_time = []
     w_masks = np.ones(local_weights[0]['layer_input.weight'].shape[0])
     b_masks = np.ones(local_weights[0]['layer_input.bias'].shape[0])
     for i in range(len(weights_masks_list)):
@@ -188,10 +191,12 @@ if __name__ == '__main__':
         # print("masked weights: ", masked_weights)
 
         tmp_local_model.load_state_dict(local_weights[i])
-        fed_test_acc, fed_test_loss = test_inference(args, tmp_local_model, test_dataset)
-        print("|---- Test Accuracy node {}: {:.2f}%".format(i+1, 100 * fed_test_acc))
+        fed_test_acc, fed_test_loss, fed_test_time = test_inference(args, tmp_local_model, test_dataset)
+        print("|---- Test Accuracy fed node {}: {:.2f}%".format(i+1, 100 * fed_test_acc))
+        print("|---- Test Time fed node {}: {:.6f}".format(i + 1, fed_test_time))
         fed_node_acc.append(fed_test_acc)
         fed_node_loss.append(fed_test_loss)
+        fed_node_time.append(fed_test_time)
 
     # average accuracy across all fed nodes
     print("|---- Average Test Accuracy across all node: {:.2f}%".format( \
@@ -206,6 +211,9 @@ if __name__ == '__main__':
     print("|---- Test Accuracy difference between global model and average test "
           " across nodes: {:.2f}%".format( \
         100 * (test_acc - (sum(fed_node_acc)/len(fed_node_acc)))))
+
+    print("|---- Average Test time across all node: {:.6f}".format( \
+        sum(fed_node_time)/len(fed_node_time)))
 
     # Saving the objects train_loss and train_accuracy:
     file_name = '../save/objects/{}_{}_{}_C[{}]_iid[{}]_E[{}]_B[{}].pkl'.\

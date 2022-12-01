@@ -5,7 +5,7 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
-
+import time
 
 class DatasetSplit(Dataset):
     """An abstract Dataset class wrapped around Pytorch Dataset class.
@@ -27,8 +27,10 @@ class LocalUpdate(object):
     def __init__(self, args, dataset, idxs, logger):
         self.args = args
         self.logger = logger
-        self.trainloader, self.validloader, self.testloader = self.train_val_test(
-            dataset, list(idxs))
+        self.trainloader = DataLoader(DatasetSplit(dataset, idxs), \
+                                      batch_size=self.args.local_bs, shuffle=True)
+        # self.trainloader, self.validloader, self.testloader = self.train_val_test(
+        #     dataset, list(idxs))
         self.device = 'cuda' if args.gpu else 'cpu'
         # Default criterion set to NLL loss function
         self.criterion = nn.NLLLoss().to(self.device)
@@ -93,7 +95,7 @@ class LocalUpdate(object):
         model.eval()
         loss, total, correct = 0.0, 0.0, 0.0
 
-        for batch_idx, (images, labels) in enumerate(self.testloader):
+        for batch_idx, (images, labels) in enumerate(self.trainloader):
             images, labels = images.to(self.device), labels.to(self.device)
 
             # Inference
@@ -123,14 +125,17 @@ def test_inference(args, model, test_dataset):
     testloader = DataLoader(test_dataset, batch_size=128,
                             shuffle=False)
 
+    test_time = 0
     for batch_idx, (images, labels) in enumerate(testloader):
         images, labels = images.to(device), labels.to(device)
 
         # Inference
+        start_time = time.time()
         outputs = model(images)
+        end_time = time.time()
         batch_loss = criterion(outputs, labels)
         loss += batch_loss.item()
-
+        test_time += end_time - start_time
         # Prediction
         _, pred_labels = torch.max(outputs, 1)
         pred_labels = pred_labels.view(-1)
@@ -138,4 +143,4 @@ def test_inference(args, model, test_dataset):
         total += len(labels)
 
     accuracy = correct/total
-    return accuracy, loss
+    return accuracy, loss, test_time
