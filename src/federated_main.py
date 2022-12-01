@@ -18,7 +18,7 @@ from update import LocalUpdate, test_inference
 from models import MLP, CNNMnist, CNNFashion_Mnist, CNNCifar
 from utils import get_dataset, average_weights, exp_details, prune_mlp, prune_linear, copy_weights_mlp, remove_reparam_mlp, compute_stats
 from torch.nn.utils.prune import remove
-
+import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -99,10 +99,20 @@ if __name__ == '__main__':
             local_model = LocalUpdate(args=args, dataset=train_dataset,
                                       idxs=user_groups[idx], logger=logger)
             local_upd_model = copy.deepcopy(global_model)            
-
+            plot_count = 0
+            plt.figure()
             for iter in range(args.prune_iter):
-                w, loss = local_model.update_weights(
+                w, loss, epoch_loss_bp = local_model.update_weights(
                     local_upd_model, global_round=epoch)
+
+                # if plot_count == 0:
+
+                plt.plot(np.arange(1, len(epoch_loss_bp) + 1),
+                             epoch_loss_bp)
+                plt.xlabel("No. Of Epochs")
+                plt.ylabel("Loss")
+                    # plt.savefig(f'../save/loss_graph_user{idx}_bp.png')
+                    # plot_count = 1
 
                 weight_masks, bias_masks = prune_mlp(local_upd_model, per_round_prune_ratios)
 
@@ -110,8 +120,14 @@ if __name__ == '__main__':
                 # print("bias masks:", bias_masks)
                 copy_weights_mlp(local_upd_model_copy, local_upd_model)                
                     
-            w, loss = local_model.update_weights(
+            w, loss, epoch_loss_ap = local_model.update_weights(
                     local_upd_model, global_round=epoch)
+            plt.plot(np.arange(1, len(epoch_loss_ap) + 1), epoch_loss_ap)
+            plt.xlabel("No. Of Epochs")
+            plt.ylabel("Loss")
+            legend_name = [f" iteration {x}" for x in range(args.prune_iter)]
+            plt.legend(legend_name, loc = 'upper right')
+            plt.savefig(f'../save/loss_graph_user{idx}_strat{args.prune_strat}_iter{args.prune_iter}_pr{args.prune_ratio}.png')
 
             weights_masks_list.append(weight_masks)
             bias_masks_list.append(bias_masks)
