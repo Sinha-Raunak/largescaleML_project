@@ -16,7 +16,7 @@ def get_dataset(args):
     each of those users.
     """
     # number of fed nodes
-    m = max(int(args.frac * args.num_users), 1)
+    # m = max(int(args.frac * args.num_users), 1)
     if args.dataset == 'cifar':
         data_dir = '../data/cifar/'
         apply_transform = transforms.Compose(
@@ -32,7 +32,7 @@ def get_dataset(args):
         # sample training data amongst users
         if args.iid:
             # Sample IID user data from Mnist
-            user_groups = cifar_iid(train_dataset, m)
+            user_groups = cifar_iid(train_dataset, args.num_users)
         else:
             # Sample Non-IID user data from Mnist
             if args.unequal:
@@ -40,7 +40,7 @@ def get_dataset(args):
                 raise NotImplementedError()
             else:
                 # Chose euqal splits for every user
-                user_groups = cifar_noniid(train_dataset, m)
+                user_groups = cifar_noniid(train_dataset, args.num_users)
 
     elif args.dataset == 'mnist' or 'fmnist':
         if args.dataset == 'mnist':
@@ -61,15 +61,15 @@ def get_dataset(args):
         # sample training data amongst users
         if args.iid:
             # Sample IID user data from Mnist
-            user_groups = mnist_iid(train_dataset, m)
+            user_groups = mnist_iid(train_dataset, args.num_users)
         else:
             # Sample Non-IID user data from Mnist
             if args.unequal:
                 # Chose uneuqal splits for every user
-                user_groups = mnist_noniid_unequal(train_dataset, m)
+                user_groups = mnist_noniid_unequal(train_dataset, args.num_users)
             else:
                 # Chose euqal splits for every user
-                user_groups = mnist_noniid(train_dataset, m)
+                user_groups = mnist_noniid(train_dataset, args.num_users)
 
     return train_dataset, test_dataset, user_groups
 
