@@ -106,14 +106,12 @@ if __name__ == '__main__':
                 w, loss, epoch_loss_bp = local_model.update_weights(
                     local_upd_model, global_round=epoch)
 
-                # if plot_count == 0:
+                if args.plot_graph:
+                    plt.plot(np.arange(1, len(epoch_loss_bp) + 1),
+                                 epoch_loss_bp)
+                    plt.xlabel("No. Of Epochs")
+                    plt.ylabel("Loss")
 
-                plt.plot(np.arange(1, len(epoch_loss_bp) + 1),
-                             epoch_loss_bp)
-                plt.xlabel("No. Of Epochs")
-                plt.ylabel("Loss")
-                    # plt.savefig(f'../save/loss_graph_user{idx}_bp.png')
-                    # plot_count = 1
 
                 weight_masks, bias_masks = prune_mlp(local_upd_model, per_round_prune_ratios)
 
@@ -123,12 +121,14 @@ if __name__ == '__main__':
                     
             w, loss, epoch_loss_ap = local_model.update_weights(
                     local_upd_model, global_round=epoch)
-            plt.plot(np.arange(1, len(epoch_loss_ap) + 1), epoch_loss_ap)
-            plt.xlabel("No. Of Epochs")
-            plt.ylabel("Loss")
-            legend_name = [f" iteration {x}" for x in range(args.prune_iter+1)]
-            plt.legend(legend_name, loc = 'upper right')
-            plt.savefig(f'../save/loss_graph_user{idx}_strat{args.prune_strat}_iter{args.prune_iter}_pr{args.prune_ratio}.png')
+
+            if args.plot_graph:
+                plt.plot(np.arange(1, len(epoch_loss_ap) + 1), epoch_loss_ap)
+                plt.xlabel("No. Of Epochs")
+                plt.ylabel("Loss")
+                legend_name = [f" iteration {x}" for x in range(args.prune_iter+1)]
+                plt.legend(legend_name, loc = 'upper right')
+                plt.savefig(f'../save/loss_graph_{args.dataset}_user{idx}_strat{args.prune_strat}_iter{args.prune_iter}_pr{args.prune_ratio}.png')
 
             weights_masks_list.append(weight_masks)
             bias_masks_list.append(bias_masks)
